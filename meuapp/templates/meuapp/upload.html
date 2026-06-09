@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="utf-8">
+    <title>PDF PARA TXT</title>
+</head>
+<body>
+    <h1>Converter PDF para TXT</h1>
+    
+    <form method="POST" enctype="multipart/form-data">    
+        {% csrf_token %}
+        <input type="file" name="pdf_file" accept=".pdf" required>
+        <br><br>
+        <button type="submit">Converter e Baixar TXT</button>
+    </form>
+</body>
+</html>
