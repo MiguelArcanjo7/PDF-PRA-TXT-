@@ -1,17 +1,299 @@
 <!DOCTYPE html>
-<html lang="pt-br">
+<html lang="pt-BR">
 <head>
-    <meta charset="utf-8">
-    <title>PDF PARA TXT</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Conversor PDF → TXT</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css" />
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: sans-serif;
+      background: #f5f5f3;
+      color: #1a1a1a;
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      padding: 3rem 1rem;
+    }
+
+    .app { max-width: 640px; width: 100%; }
+
+    .header { margin-bottom: 2rem; }
+    .header h1 { font-size: 22px; font-weight: 500; margin-bottom: 6px; }
+    .header p { font-size: 14px; color: #666; }
+
+    .drop-zone {
+      border: 1.5px dashed #bbb;
+      border-radius: 12px;
+      padding: 2.5rem 2rem;
+      text-align: center;
+      cursor: pointer;
+      transition: background 0.15s;
+      background: #fff;
+    }
+    .drop-zone:hover, .drop-zone.dragover {
+      background: #f0f0ee;
+      border-color: #888;
+    }
+    .drop-zone i { font-size: 36px; color: #888; display: block; margin-bottom: 12px; }
+    .drop-zone .label { font-size: 15px; font-weight: 500; margin-bottom: 6px; }
+    .drop-zone .sublabel { font-size: 13px; color: #888; }
+
+    #file-input { display: none; }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 16px;
+      border-radius: 8px;
+      border: 1px solid #ccc;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      background: #fff;
+      color: #1a1a1a;
+      font-family: inherit;
+      transition: background 0.12s;
+    }
+    .btn:hover { background: #f0f0ee; }
+    .btn:disabled { opacity: 0.45; cursor: not-allowed; }
+
+    .btn-primary {
+      background: #1a1a1a;
+      color: #fff;
+      border-color: transparent;
+    }
+    .btn-primary:hover { opacity: 0.85; background: #1a1a1a; }
+
+    .file-info {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 16px;
+      border-radius: 8px;
+      background: #f0f0ee;
+      border: 1px solid #e0e0de;
+      margin-top: 1rem;
+    }
+    .file-info i { font-size: 20px; color: #666; }
+    .file-name { flex: 1; font-size: 14px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .file-size { font-size: 12px; color: #888; }
+
+    .actions { display: flex; gap: 10px; margin-top: 1.25rem; align-items: center; flex-wrap: wrap; }
+    .status { font-size: 13px; color: #666; flex: 1; }
+
+    .output-area { margin-top: 1.5rem; }
+    .output-label {
+      font-size: 13px;
+      color: #666;
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    textarea {
+      width: 100%;
+      height: 280px;
+      font-family: monospace;
+      font-size: 13px;
+      padding: 12px;
+      border-radius: 8px;
+      border: 1px solid #ddd;
+      background: #fafaf8;
+      color: #1a1a1a;
+      resize: vertical;
+      line-height: 1.6;
+    }
+    textarea:focus { outline: none; border-color: #888; }
+
+    .hidden { display: none; }
+
+    .spinner {
+      width: 16px;
+      height: 16px;
+      border: 2px solid #ccc;
+      border-top-color: #1a1a1a;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .error-msg {
+      font-size: 13px;
+      color: #a32d2d;
+      background: #fcebeb;
+      border: 1px solid #f09595;
+      border-radius: 8px;
+      padding: 10px 14px;
+      margin-top: 1rem;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+  </style>
 </head>
 <body>
-    <h1>Converter PDF para TXT</h1>
-    
-    <form method="POST" enctype="multipart/form-data">    
-        {% csrf_token %}
-        <input type="file" name="pdf_file" accept=".pdf" required>
-        <br><br>
-        <button type="submit">Converter e Baixar TXT</button>
-    </form>
+
+<div class="app">
+  <div class="header">
+    <h1>Conversor PDF → TXT</h1>
+    <p>Faça upload de um PDF e extraia o texto com um clique.</p>
+  </div>
+
+  <div class="drop-zone" id="drop-zone" onclick="document.getElementById('file-input').click()">
+    <i class="ti ti-file-upload"></i>
+    <div class="label">Arraste um PDF aqui</div>
+    <div class="sublabel">ou clique para selecionar o arquivo</div>
+    <input type="file" id="file-input" accept=".pdf" />
+  </div>
+
+  <div id="file-info-box" class="file-info hidden">
+    <i class="ti ti-file-text"></i>
+    <span class="file-name" id="file-name-label"></span>
+    <span class="file-size" id="file-size-label"></span>
+  </div>
+
+  <div id="error-box" class="error-msg hidden">
+    <i class="ti ti-alert-circle"></i>
+    <span id="error-text"></span>
+  </div>
+
+  <div class="actions">
+    <button class="btn btn-primary" id="convert-btn" disabled onclick="convert()">
+      <i class="ti ti-transform"></i> Converter
+    </button>
+    <button class="btn hidden" id="download-btn" onclick="download()">
+      <i class="ti ti-download"></i> Baixar .txt
+    </button>
+    <button class="btn hidden" id="copy-btn" onclick="copyText()">
+      <i class="ti ti-copy"></i> Copiar
+    </button>
+    <div id="spinner" class="spinner hidden"></div>
+    <span class="status" id="status-msg"></span>
+  </div>
+
+  <div class="output-area hidden" id="output-area">
+    <div class="output-label">
+      <span>Texto extraído</span>
+      <span id="char-count" style="font-size:12px;"></span>
+    </div>
+    <textarea id="output-text" readonly placeholder="O texto extraído aparecerá aqui..."></textarea>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script>
+  const pdfjsLib = window['pdfjs-dist/build/pdf'];
+  pdfjsLib.GlobalWorkerOptions.workerSrc =
+    'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+  let selectedFile = null;
+
+  const dropZone = document.getElementById('drop-zone');
+  const fileInput = document.getElementById('file-input');
+
+  dropZone.addEventListener('dragover', e => {
+    e.preventDefault();
+    dropZone.classList.add('dragover');
+  });
+  dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+  dropZone.addEventListener('drop', e => {
+    e.preventDefault();
+    dropZone.classList.remove('dragover');
+    const f = e.dataTransfer.files[0];
+    if (f && f.type === 'application/pdf') setFile(f);
+    else showError('Por favor, selecione um arquivo PDF.');
+  });
+
+  fileInput.addEventListener('change', e => {
+    if (e.target.files[0]) setFile(e.target.files[0]);
+  });
+
+  function setFile(f) {
+    selectedFile = f;
+    document.getElementById('file-name-label').textContent = f.name;
+    document.getElementById('file-size-label').textContent = (f.size / 1024).toFixed(1) + ' KB';
+    document.getElementById('file-info-box').classList.remove('hidden');
+    document.getElementById('convert-btn').disabled = false;
+    document.getElementById('output-area').classList.add('hidden');
+    document.getElementById('download-btn').classList.add('hidden');
+    document.getElementById('copy-btn').classList.add('hidden');
+    document.getElementById('error-box').classList.add('hidden');
+    document.getElementById('status-msg').textContent = '';
+    document.getElementById('output-text').value = '';
+  }
+
+  function showError(msg) {
+    document.getElementById('error-text').textContent = msg;
+    document.getElementById('error-box').classList.remove('hidden');
+  }
+
+  async function convert() {
+    if (!selectedFile) return;
+    document.getElementById('error-box').classList.add('hidden');
+    document.getElementById('spinner').classList.remove('hidden');
+    document.getElementById('convert-btn').disabled = true;
+    document.getElementById('status-msg').textContent = 'Lendo o PDF...';
+
+    try {
+      const arrayBuffer = await selectedFile.arrayBuffer();
+      const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+      let fullText = '';
+
+      for (let i = 1; i <= pdf.numPages; i++) {
+        document.getElementById('status-msg').textContent =
+          `Extraindo página ${i} de ${pdf.numPages}...`;
+        const page = await pdf.getPage(i);
+        const content = await page.getTextContent();
+        const pageText = content.items.map(item => item.str).join(' ');
+        fullText += (i > 1 ? '\n\n' : '') + `--- Página ${i} ---\n` + pageText;
+      }
+
+      if (!fullText.trim()) {
+        showError('Não foi possível extrair texto deste PDF. Ele pode ser um PDF de imagem (escaneado).');
+      } else {
+        document.getElementById('output-text').value = fullText;
+        document.getElementById('output-area').classList.remove('hidden');
+        document.getElementById('download-btn').classList.remove('hidden');
+        document.getElementById('copy-btn').classList.remove('hidden');
+        document.getElementById('char-count').textContent =
+          fullText.length.toLocaleString('pt-BR') + ' caracteres';
+        document.getElementById('status-msg').textContent =
+          `${pdf.numPages} página(s) extraída(s).`;
+      }
+    } catch (err) {
+      showError('Erro ao processar o PDF: ' + (err.message || err));
+    }
+
+    document.getElementById('spinner').classList.add('hidden');
+    document.getElementById('convert-btn').disabled = false;
+  }
+
+  function download() {
+    const text = document.getElementById('output-text').value;
+    const baseName = (selectedFile?.name || 'arquivo').replace(/\.pdf$/i, '');
+    const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = baseName + '.txt';
+    a.click();
+  }
+
+  function copyText() {
+    const text = document.getElementById('output-text').value;
+    navigator.clipboard.writeText(text).then(() => {
+      const btn = document.getElementById('copy-btn');
+      btn.innerHTML = '<i class="ti ti-check"></i> Copiado!';
+      setTimeout(() => {
+        btn.innerHTML = '<i class="ti ti-copy"></i> Copiar';
+      }, 2000);
+    });
+  }
+</script>
+
 </body>
 </html>
